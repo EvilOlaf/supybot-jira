@@ -28,18 +28,19 @@
 
 ###
 
-import supybot.utils as utils
-import supybot.conf as conf
-from supybot.commands import *
-import supybot.plugins as plugins
-import supybot.ircutils as ircutils
-import supybot.callbacks as callbacks
-from jira.client import Client as JIRA
+import os
 import re
+
+import supybot.callbacks as callbacks
+import supybot.conf as conf
+import supybot.ircutils as ircutils
+import supybot.plugins as plugins
+import supybot.utils as utils
+import yaml
+from jira.client import Client as JIRA
 from oauthlib.oauth1 import SIGNATURE_RSA
 from requests_oauthlib import OAuth1Session
-import yaml
-import os
+from supybot.commands import *
 
 try:
     from supybot.i18n import PluginInternationalization
@@ -47,7 +48,7 @@ try:
 except:
     # Placeholder that allows to run the plugin on a bot
     # without the i18n module
-    _ = lambda x:x
+    def _(x): return x
 
 
 def display_time(time):
@@ -109,7 +110,7 @@ class Jira(callbacks.PluginRegexp):
         except:
             self.tokens = dict()
 
-        options = { 'server': self.server, 'verify': self.verifySSL }
+        options = {'server': self.server, 'verify': self.verifySSL}
         self.jira = dict()
         try:
             oauth_dict = {
@@ -118,20 +119,20 @@ class Jira(callbacks.PluginRegexp):
                 'consumer_key': self.consumer_key,
                 'key_cert': self.rsa_key
             }
-            self.jira[self.user] = JIRA(options = options, oauth = oauth_dict)
+            self.jira[self.user] = JIRA(options=options, oauth=oauth_dict)
         except:
             auth = (self.user, self.password)
-            self.jira[self.user] = JIRA(options = options, basic_auth = auth)
+            self.jira[self.user] = JIRA(options=options, basic_auth=auth)
 
     def establishConnection(self, user):
-        options = { 'server': self.server, 'verify': self.verifySSL }
+        options = {'server': self.server, 'verify': self.verifySSL}
         oauth_dict = {
-           'access_token': self.tokens[user]['access']['oauth_token'],
-           'access_token_secret': self.tokens[user]['access']['oauth_token_secret'],
-           'consumer_key': self.consumer_key,
-           'key_cert': self.rsa_key
+            'access_token': self.tokens[user]['access']['oauth_token'],
+            'access_token_secret': self.tokens[user]['access']['oauth_token_secret'],
+            'consumer_key': self.consumer_key,
+            'key_cert': self.rsa_key
         }
-        self.jira[user] = JIRA(options = options, oauth = oauth_dict)
+        self.jira[user] = JIRA(options=options, oauth=oauth_dict)
 
     def getIssue(self, irc, msg, match, force=False):
         """Get a Jira Issue"""
@@ -157,14 +158,14 @@ class Jira(callbacks.PluginRegexp):
             displayTime = display_time(issue.fields.timeestimate)
             url = ''.join((self.server, 'browse/', issue.key))
 
-            values = {  "type": issue.fields.issuetype.name,
-                        "key": issue.key,
-                        "summary": issue.fields.summary,
-                        "status": _c(_b(issue.fields.status.name), "green"),
-                        "assignee": _c(assignee, "blue"),
-                        "displayTime": displayTime,
-                        "url": url,
-                    }
+            values = {"type": issue.fields.issuetype.name,
+                      "key": issue.key,
+                      "summary": issue.fields.summary,
+                      "status": _c(_b(issue.fields.status.name), "green"),
+                      "assignee": _c(assignee, "blue"),
+                      "displayTime": displayTime,
+                      "url": url,
+                      }
 
             replytext = (self.template % values)
             irc.reply(replytext, prefixNick=False)
@@ -184,13 +185,14 @@ class Jira(callbacks.PluginRegexp):
 
         Comments on a given issue."""
 
-        #Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
+        # Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
         user = msg.user
         if (user not in self.jira):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
 
         try:
@@ -198,9 +200,11 @@ class Jira(callbacks.PluginRegexp):
                 irc.reply("OK. Comment created.")
         except Exception as detail:
             irc.reply("Cannot create comment. Error: %s" % detail)
-            print("Cannot comment on: %s. Error %s." % ( matched_ticket.string, detail))
+            print("Cannot comment on: %s. Error %s." %
+                  (matched_ticket.string, detail))
             return
-    comment = wrap(comment, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the ticket number, but it doesn't match the pattern."), 'text'])
+    comment = wrap(comment, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                              "The first argument should be the ticket number, but it doesn't match the pattern."), 'text'])
 
     def status(self, irc, msg, args, matched_ticket, newstatus):
         """<ticket> <new status>
@@ -211,16 +215,19 @@ class Jira(callbacks.PluginRegexp):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
         try:
             issue = self.jira[user].issue(matched_ticket.string)
         except Exception as detail:
-            irc.reply("Cannot find %s bug. Error %s." % ( matched_ticket.string, detail ))
+            irc.reply("Cannot find %s bug. Error %s." %
+                      (matched_ticket.string, detail))
             return
 
         if issue.fields.status.name == newstatus:
-            irc.reply("Too late! The %s issue is already in the requested status." % matched_ticket.string)
+            irc.reply("Too late! The %s issue is already in the requested status." %
+                      matched_ticket.string)
             return
 
         try:
@@ -233,12 +240,15 @@ class Jira(callbacks.PluginRegexp):
                 try:
                     self.jira[user].transition_issue(issue, t['id'])
                 except Exception as detail:
-                    irc.reply("Cannot transition to %s. Error %s." % (newstatus, detail))
+                    irc.reply("Cannot transition to %s. Error %s." %
+                              (newstatus, detail))
                     return
-                irc.reply("%s successfully changed state to %s" % (matched_ticket.string, newstatus) )
+                irc.reply("%s successfully changed state to %s" %
+                          (matched_ticket.string, newstatus))
                 return
         irc.reply("No transition to %s state possible from the ticket." % newstatus)
-    status = wrap(status, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the ticket number, but it doesn't match the pattern."), 'text'])
+    status = wrap(status, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                            "The first argument should be the ticket number, but it doesn't match the pattern."), 'text'])
 
     def ResolveIssue(self, irc, msg, matched_ticket, resolution, comment):
         user = msg.user
@@ -246,16 +256,19 @@ class Jira(callbacks.PluginRegexp):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
         try:
             issue = self.jira[user].issue(matched_ticket.string)
         except Exception as detail:
-            irc.reply("Cannot find %s bug. Error: %s" % (matched_ticket.string, detail))
+            irc.reply("Cannot find %s bug. Error: %s" %
+                      (matched_ticket.string, detail))
             return
 
         if issue.fields.status.name == "Resolved":
-            irc.reply("Too late! The %s issue is already resolved." % matched_ticket.string)
+            irc.reply("Too late! The %s issue is already resolved." %
+                      matched_ticket.string)
             return
 
         try:
@@ -266,9 +279,11 @@ class Jira(callbacks.PluginRegexp):
         for t in transitions:
             if t['to']['name'] == "Resolved":
                 try:
-                    self.jira[user].transition_issue(issue, t['id'], { "resolution": {"name": resolution} }, comment)
+                    self.jira[user].transition_issue(
+                        issue, t['id'], {"resolution": {"name": resolution}}, comment)
                 except Exception as detail:
-                    irc.reply("Cannot transition to Resolved. Error %s." % detail)
+                    irc.reply(
+                        "Cannot transition to Resolved. Error %s." % detail)
                     return
                 irc.reply("Resolved successfully")
                 return
@@ -279,27 +294,30 @@ class Jira(callbacks.PluginRegexp):
 
         Changes the ticket to Resolved state, optionally with a comment."""
         self.ResolveIssue(irc, msg, matched_ticket, "Fixed", comment)
-    resolve = wrap(resolve, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the ticket number, but it doesn't match the pattern."), optional('text')])
+    resolve = wrap(resolve, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                              "The first argument should be the ticket number, but it doesn't match the pattern."), optional('text')])
 
     def wontfix(self, irc, msg, args, matched_ticket, comment):
         """<ticket> [<comment>]
 
         Changes the ticket to Resolved state with 'Won't fix' resolution, optionally with a comment."""
         self.ResolveIssue(irc, msg, matched_ticket, "Won't Fix", comment)
-    wontfix = wrap(wontfix, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the ticket number, but it doesn't match the pattern."), optional('text')])
+    wontfix = wrap(wontfix, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                              "The first argument should be the ticket number, but it doesn't match the pattern."), optional('text')])
 
     def assign(self, irc, msg, args, matched_ticket, assignee):
         """<ticket> <assginee>
 
         Assigns the issue to the given user ID. If no user ID is given, it is assigned to the requester."""
 
-        #Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
+        # Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
         user = msg.user
         if (user not in self.jira):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
         if (assignee is None):
             assignee = user
@@ -309,9 +327,11 @@ class Jira(callbacks.PluginRegexp):
             url = ''.join((self.server, 'browse/', issue.key))
             irc.reply("Issue assigned to %s: %s" % (assignee, url))
         except Exception as detail:
-            irc.reply("Cannot assign %s to %s. Error %s." % (matched_ticket.string, assignee, detail) )
+            irc.reply("Cannot assign %s to %s. Error %s." %
+                      (matched_ticket.string, assignee, detail))
             return
-    assign = wrap(assign, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the ticket number, but it doesn't match the pattern."), optional('somethingWithoutSpaces')])
+    assign = wrap(assign, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                            "The first argument should be the ticket number, but it doesn't match the pattern."), optional('somethingWithoutSpaces')])
 
     def unassign(self, irc, msg, args, matched_ticket):
         """<ticket>
@@ -322,7 +342,8 @@ class Jira(callbacks.PluginRegexp):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
         try:
             self.jira[user].assign_issue(matched_ticket.string, None)
@@ -330,124 +351,140 @@ class Jira(callbacks.PluginRegexp):
             url = ''.join((self.server, 'browse/', issue.key))
             irc.reply("Issue unassigned: %s" % (url,))
         except Exception as detail:
-            irc.reply("Cannot unassign %s. Error %s." % (matched_ticket.string, detail) )
+            irc.reply("Cannot unassign %s. Error %s." %
+                      (matched_ticket.string, detail))
             return
-    unassign = wrap(unassign, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the ticket number, but it doesn't match the pattern.")])
-
+    unassign = wrap(unassign, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                                "The first argument should be the ticket number, but it doesn't match the pattern.")])
 
     def create(self, irc, msg, args, matched_proj, issuetype, title):
         """<project> <issue type> <title>
 
         Creates a new issue in Jira. Should print out the issue number."""
 
-        #Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
+        # Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
         user = msg.user
         if (user not in self.jira):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
         try:
-            newissue = self.jira[user].create_issue(project={'key': matched_proj.string}, summary=title, issuetype={'name': issuetype})
+            newissue = self.jira[user].create_issue(
+                project={'key': matched_proj.string}, summary=title, issuetype={'name': issuetype})
             irc.reply("OK. %s created." % newissue.key)
         except Exception as detail:
-            irc.reply("Cannot create issue. Check the type %s is valid for the project. Error: %s." % (issuetype, detail) )
+            irc.reply("Cannot create issue. Check the type %s is valid for the project. Error: %s." % (
+                issuetype, detail))
             print("Cannot comment on: %s" % matched_proj.string)
             return
-    create = wrap(create, [('matches', re.compile('^[A-Z]+$'), "The first argument should be the project abbrev like JRA, but it doesn't match the pattern."), 'something', 'text'])
+    create = wrap(create, [('matches', re.compile(
+        '^[A-Z]+$'), "The first argument should be the project abbrev like JRA, but it doesn't match the pattern."), 'something', 'text'])
 
     def describe(self, irc, msg, args, matched_ticket, text):
         """<issue> <description>
 
         Replaces the description of the issue."""
 
-        #Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
+        # Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
         user = msg.user
         if (user not in self.jira):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
         try:
             issue = self.jira[user].issue(matched_ticket.string)
             if text:
-                issue.update(description = text)
+                issue.update(description=text)
                 irc.reply("OK. Description changed.")
             else:
-                irc.reply("({0} {1}) {2}: {3}".format(issue.fields.issuetype.name, matched_ticket.string, issue.fields.summary, issue.fields.description))
+                irc.reply("({0} {1}) {2}: {3}".format(issue.fields.issuetype.name,
+                                                      matched_ticket.string, issue.fields.summary, issue.fields.description))
         except Exception as detail:
             irc.reply("Cannot change issue description. Error %s." % detail)
             return
-    describe = wrap(describe, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the issue ID like JRA-123, but it doesn't match the pattern."), optional('text')])
+    describe = wrap(describe, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                                "The first argument should be the issue ID like JRA-123, but it doesn't match the pattern."), optional('text')])
 
     def priority(self, irc, msg, args, matched_ticket, prio):
         """<issue> <priority>
 
         Sets the priority on the ticket."""
 
-        #Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
+        # Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
         user = msg.user
         if (user not in self.jira):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
         try:
             issue = self.jira[user].issue(matched_ticket.string)
-            issue.update(priority = { 'id' : str(prio) })
+            issue.update(priority={'id': str(prio)})
             irc.reply("OK. Priority changed.")
         except Exception as detail:
             irc.reply("Cannot change issue priority. Error %s." % detail)
             return
 
-    priority = wrap(priority, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the issue ID like JRA-123, but it doesn't match the pattern."), 'int'])
+    priority = wrap(priority, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                                "The first argument should be the issue ID like JRA-123, but it doesn't match the pattern."), 'int'])
 
     def watch(self, irc, msg, args, matched_ticket):
         """<issue>
 
         Adds the requester to the watchers list."""
 
-        #Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
+        # Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
         user = msg.user
         if (user not in self.jira):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
 
         try:
-            self.jira[user].add_watcher(issue = matched_ticket.string, watcher = user)
+            self.jira[user].add_watcher(
+                issue=matched_ticket.string, watcher=user)
             irc.reply("OK. Watchers list modifed.")
         except Exception as detail:
             irc.reply("Cannot modfidy the watchers list. Error: %s." % detail)
             return
-    watch = wrap(watch, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the issue ID like JRA-123, but it doesn't match the pattern.")])
+    watch = wrap(watch, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                          "The first argument should be the issue ID like JRA-123, but it doesn't match the pattern.")])
 
     def unwatch(self, irc, msg, args, matched_ticket):
         """<issue>
 
         Removes the requestor from the watchers list."""
 
-        #Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
+        # Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
         user = msg.user
-        if (user not in self.jira): 
+        if (user not in self.jira):
             try:
                 self.establishConnection(user)
             except:
-                irc.reply("Cannot establish connection. Probably invalid or no token.")
+                irc.reply(
+                    "Cannot establish connection. Probably invalid or no token.")
                 return
 
         try:
-            self.jira[user].remove_watcher(issue = matched_ticket.string, watcher = user)
+            self.jira[user].remove_watcher(
+                issue=matched_ticket.string, watcher=user)
             irc.reply("OK. Watchers list modified.")
         except Exception as detail:
-            irc.reply("Cannot change the watchers list. Error: %s." %detail)
+            irc.reply("Cannot change the watchers list. Error: %s." % detail)
             return
-    unwatch = wrap(unwatch, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)), "The first argument should be the issue ID like JRA-123, but it doesn't match the pattern.")])
+    unwatch = wrap(unwatch, [('matches', re.compile(str(conf.supybot.plugins.Jira.snarfRegex)),
+                              "The first argument should be the issue ID like JRA-123, but it doesn't match the pattern.")])
 
     def issues(self, irc, msg, args, search_text):
         """<search_text>
@@ -455,7 +492,8 @@ class Jira(callbacks.PluginRegexp):
         Searches Jira issue summaries for <search_text>.
         """
         replies = []
-        issues = self.jira[self.user].search_issues("summary ~ '{0}'".format(search_text))
+        issues = self.jira[self.user].search_issues(
+            "summary ~ '{0}'".format(search_text))
         for issue in issues:
             try:
                 assignee = issue.fields.assignee.displayName
@@ -465,14 +503,14 @@ class Jira(callbacks.PluginRegexp):
             displayTime = display_time(issue.fields.timeestimate)
             url = ''.join((self.server, 'browse/', issue.key))
 
-            values = {  "type": issue.fields.issuetype.name,
-                        "key": issue.key,
-                        "summary": issue.fields.summary,
-                        "status": _c(_b(issue.fields.status.name), "green"),
-                        "assignee": _c(assignee, "blue"),
-                        "displayTime": displayTime,
-                        "url": '',
-                    }
+            values = {"type": issue.fields.issuetype.name,
+                      "key": issue.key,
+                      "summary": issue.fields.summary,
+                      "status": _c(_b(issue.fields.status.name), "green"),
+                      "assignee": _c(assignee, "blue"),
+                      "displayTime": displayTime,
+                      "url": '',
+                      }
             replies.append(self.template % values)
         if replies:
             irc.reply('|| '.join(replies), prefixNick=False)
@@ -489,7 +527,8 @@ class Jira(callbacks.PluginRegexp):
             username = msg.user
 
         replies = []
-        issues = self.jira[self.user].search_issues("assignee = '{0}' and status != Done".format(username))
+        issues = self.jira[self.user].search_issues(
+            "assignee = '{0}' and status != Done".format(username))
         for issue in issues:
             try:
                 assignee = issue.fields.assignee.displayName
@@ -499,21 +538,21 @@ class Jira(callbacks.PluginRegexp):
             displayTime = display_time(issue.fields.timeestimate)
             url = ''.join((self.server, 'browse/', issue.key))
 
-            values = {  "type": issue.fields.issuetype.name,
-                        "key": issue.key,
-                        "summary": issue.fields.summary,
-                        "status": _c(_b(issue.fields.status.name), "green"),
-                        "assignee": _c(assignee, "blue"),
-                        "displayTime": displayTime,
-                        "url": '',
-                    }
+            values = {"type": issue.fields.issuetype.name,
+                      "key": issue.key,
+                      "summary": issue.fields.summary,
+                      "status": _c(_b(issue.fields.status.name), "green"),
+                      "assignee": _c(assignee, "blue"),
+                      "displayTime": displayTime,
+                      "url": '',
+                      }
             replies.append(self.template % values)
         if replies:
             irc.reply('|| '.join(replies), prefixNick=False)
         else:
             irc.reply("No issues found assigned to '{0}'.".format(username))
         return
-    assigned = wrap(assigned, [ optional('text') ])
+    assigned = wrap(assigned, [optional('text')])
 
     def gettoken(self, irc, msg, args, force):
         """
@@ -523,88 +562,97 @@ class Jira(callbacks.PluginRegexp):
             irc.reply("Wrong syntax.")
             return
 
-        #Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
+        # Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
         user = msg.user
 
         try:
             if ('access_key' in self.tokens[user] and force != "force"):
-                irc.reply("You seem to already have a token. Use force to get a new one.")
+                irc.reply(
+                    "You seem to already have a token. Use force to get a new one.")
                 return
             if ('request_key' in self.tokens[user] and force != "force"):
-                irc.reply("You have requested a token already. If you accepted access to Jira, use 'committoken' Use 'gettoken force' to request a new token.",private=True,notice=False)
+                irc.reply("You have requested a token already. If you accepted access to Jira, use 'committoken' Use 'gettoken force' to request a new token.", private=True, notice=False)
                 return
         except:
             self.tokens[user] = dict()
             self.tokens[user]['request'] = dict()
 
         oauth = OAuth1SessionNoVerify(
-                    self.consumer_key,
-                    signature_type='auth_header',
-                    signature_method=SIGNATURE_RSA,
-                    rsa_key=self.rsa_key,
-                    verify=self.verifySSL
-                )
+            self.consumer_key,
+            signature_type='auth_header',
+            signature_method=SIGNATURE_RSA,
+            rsa_key=self.rsa_key,
+            verify=self.verifySSL
+        )
         try:
             request_token = oauth.fetch_request_token(self.request_token_url)
         except Exception as detail:
-            irc.reply("Error occurred while getting token: %s." %detail)
+            irc.reply("Error occurred while getting token: %s." % detail)
             return
 
-        irc.reply("Please go to %s?oauth_token=%s" % (self.authorize_url, request_token['oauth_token']), private=True, notice=False)
-        irc.reply("After that's done, use the bot command 'committoken'", private=True, notice=False)
+        irc.reply("Please go to %s?oauth_token=%s" % (
+            self.authorize_url, request_token['oauth_token']), private=True, notice=False)
+        irc.reply("After that's done, use the bot command 'committoken'",
+                  private=True, notice=False)
 
         self.tokens[user]['request'] = request_token
 
-        f = file("%s.new" % self.tokenstore,'w')
+        f = file("%s.new" % self.tokenstore, 'w')
         yaml.dump(self.tokens, f, default_flow_style=False)
         os.rename("%s.new" % self.tokenstore, self.tokenstore)
 
-    gettoken = wrap(gettoken, [ optional('text') ])
+    gettoken = wrap(gettoken, [optional('text')])
 
     def committoken(self, irc, msg, args):
         """takes no arguments.
 
         Tells the bot that the requested token is accepted."""
 
-        #Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
+        # Get user name. Very simple. Assumes that the data in ident is authoritative and no-one can fake it.
         user = msg.user
 
         try:
             if ('request' not in self.tokens[user]):
-                irc.reply("No request token found. You need to first request a token with 'gettoken'.",private=True,notice=False)
+                irc.reply(
+                    "No request token found. You need to first request a token with 'gettoken'.", private=True, notice=False)
                 return
         except:
-            irc.reply("No request token found. You need to first request a token with 'gettoken'.",private=True,notice=False)
+            irc.reply("No request token found. You need to first request a token with 'gettoken'.",
+                      private=True, notice=False)
             return
 
         oauth = OAuth1SessionNoVerify(
-                    self.consumer_key,
-                    signature_type='auth_header',
-                    signature_method=SIGNATURE_RSA,
-                    rsa_key=self.rsa_key,
-                    verifier=self.oauth_verifier,
-                    verify=self.verifySSL
-                )
+            self.consumer_key,
+            signature_type='auth_header',
+            signature_method=SIGNATURE_RSA,
+            rsa_key=self.rsa_key,
+            verifier=self.oauth_verifier,
+            verify=self.verifySSL
+        )
         oauth._populate_attributes(self.tokens[user]['request'])
 
         try:
-            self.tokens[user]['access'] = oauth.fetch_access_token(self.access_token_url)
-        except Exception as detail: 
+            self.tokens[user]['access'] = oauth.fetch_access_token(
+                self.access_token_url)
+        except Exception as detail:
             irc.reply("Error occured while committing token: %s." % detail)
 
         irc.reply("Token committed.", private=True, notice=False)
 
-        f = file("%s.new" % self.tokenstore,'w')
+        f = file("%s.new" % self.tokenstore, 'w')
         yaml.dump(self.tokens, f, default_flow_style=False)
         os.rename("%s.new" % self.tokenstore, self.tokenstore)
 
     committoken = wrap(committoken)
 
+
 def _b(text):
     return ircutils.bold(text)
 
+
 def _c(text, color):
     return ircutils.mircColor(text, color)
+
 
 Class = Jira
 

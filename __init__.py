@@ -43,13 +43,14 @@ import imp
 __version__ = "0.2"
 
 # XXX Replace this with an appropriate author or supybot.Author instance.
-__author__ = supybot.Author('Adam Harwell', 'rm_you', 'adam.harwell@rackspace.com')
+__author__ = supybot.Author(
+    'Adam Harwell', 'rm_you', 'adam.harwell@rackspace.com')
 
 # This is a dictionary mapping supybot.Author instances to lists of
 # contributions.
-__contributors__ = { "create": supybot.Author('Bolesław Tokarski', 'ballock', 'boleslaw.tokarski@opera.com'),
-                     "resolve": supybot.Author('Bolesław Tokarski', 'ballock', 'boleslaw.tokarski@opera.com'),
-                   }
+__contributors__ = {"create": supybot.Author('Bolesław Tokarski', 'ballock', 'boleslaw.tokarski@opera.com'),
+                    "resolve": supybot.Author('Bolesław Tokarski', 'ballock', 'boleslaw.tokarski@opera.com'),
+                    }
 
 # This is a url where the most recent plugin package can be downloaded.
 __url__ = 'https://github.com/rm-you/supybot-jira'

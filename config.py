@@ -36,10 +36,11 @@ try:
 except:
     # Placeholder that allows to run the plugin on a bot
     # without the i18n module
-    _ = lambda x:x
+    def _(x): return x
 
 template = "(%(type)s %(key)s) %(summary)s [ %(assignee)s%(displayTime)s ] "\
            "%(status)s %(url)s"
+
 
 def configure(advanced):
     # This will be called by supybot to configure this module.  advanced is
@@ -52,18 +53,24 @@ def configure(advanced):
     user = something("""What is the username for the Jira user?""")
     password = something("""What is the password for the Jira user?""")
     template = something("""What output template would you like?""",
-            default=template)
-    lookup = yn("""Do you want to lookup Jira issues once they appear on a channel?""", default=True)
+                         default=template)
+    lookup = yn(
+        """Do you want to lookup Jira issues once they appear on a channel?""", default=True)
     snarfRegex = something("""What is the prefix for your Jira issue keys?""",
-            default="JRA")
+                           default="JRA")
     snarfRegex = ''.join((snarfRegex, '-[0-9]+'))
     verifySSL = yn("""Would you like the plugin to verify your Jira instance's
             SSL certificate?""", default=False)
-    OAuthConsumerName = something("""What is the consumer name as per the Jira linked applications?""")
-    OAuthConsumerKey = something("""What is the consumer secret key as per the Jira linked applications?""")
-    OAuthVerifier = something("""What is the consumer verifier string for Jira OAuth?""", default='none')
-    OAuthConsumerSSLKey = something("""What is the filename holding the SSL key bound with the Jira trusted cert?""")
-    OAuthTokenDatabase = something("""What is the filename holding the yaml structure with OAuth tokens?""")
+    OAuthConsumerName = something(
+        """What is the consumer name as per the Jira linked applications?""")
+    OAuthConsumerKey = something(
+        """What is the consumer secret key as per the Jira linked applications?""")
+    OAuthVerifier = something(
+        """What is the consumer verifier string for Jira OAuth?""", default='none')
+    OAuthConsumerSSLKey = something(
+        """What is the filename holding the SSL key bound with the Jira trusted cert?""")
+    OAuthTokenDatabase = something(
+        """What is the filename holding the yaml structure with OAuth tokens?""")
 
     Jira.server.setValue(server)
     Jira.user.setValue(user)
@@ -77,37 +84,38 @@ def configure(advanced):
     Jira.OAuthVerifier.setValue(OauthVerifier)
     Jira.OAuthTokenDatabase.setValue(OauthTokenDatabase)
 
-    #snarfRegex = expect("""What is the regex for your Jira ticket IDs?""", 
+    # snarfRegex = expect("""What is the regex for your Jira ticket IDs?""",
     #                        default="JRA-[0-9]+")
-    #Jira.snarfRegex.setValue(snarfRegex)
+    # Jira.snarfRegex.setValue(snarfRegex)
+
 
 Jira = conf.registerPlugin('Jira')
 
-conf.registerGlobalValue(Jira, 'server', 
-	registry.String('', _("""URL for Jira instance.""")))
-conf.registerGlobalValue(Jira, 'user', 
-	registry.String('', _("""Username for Jira authentication.""")))
-conf.registerGlobalValue(Jira, 'password', 
-	registry.String('', _("""Password for Jira authentication.""")))
-conf.registerGlobalValue(Jira, 'template', 
-	registry.String(template, 
-        _("""Template for the plugin's output formatting.""")))
+conf.registerGlobalValue(Jira, 'server',
+                         registry.String('', _("""URL for Jira instance.""")))
+conf.registerGlobalValue(Jira, 'user',
+                         registry.String('', _("""Username for Jira authentication.""")))
+conf.registerGlobalValue(Jira, 'password',
+                         registry.String('', _("""Password for Jira authentication.""")))
+conf.registerGlobalValue(Jira, 'template',
+                         registry.String(template,
+                                         _("""Template for the plugin's output formatting.""")))
 conf.registerGlobalValue(Jira, 'verifySSL',
-    registry.Boolean(False, _("""Verify SSL certificate for Jira instance.""")))
+                         registry.Boolean(False, _("""Verify SSL certificate for Jira instance.""")))
 conf.registerChannelValue(Jira, 'lookup',
-    registry.Boolean(True, _("""Lookup Jira issues and print on the channel.""")))
-conf.registerGlobalValue(Jira, 'snarfRegex', 
-    registry.String('JRA-[0-9]+', _("""Regex for Jira ticket ID snarfing.""")))
-conf.registerGlobalValue(Jira, 'OAuthConsumerName', 
-    registry.String('', _("""Consumer name as per the Jira linked applications."""), private=True))
-conf.registerGlobalValue(Jira, 'OAuthConsumerKey', 
-    registry.String('', _("""Consumer secret key as per the Jira linked applications."""), private=True))
-conf.registerGlobalValue(Jira, 'OAuthVerifier', 
-    registry.String('', _("""Consumer verification string for Jira OAuth."""), private=True))
-conf.registerGlobalValue(Jira, 'OAuthConsumerSSLKey', 
-    registry.String('', _("""Filename holding the SSL key bound with the Jira trusted cert."""), private=True))
-conf.registerGlobalValue(Jira, 'OAuthTokenDatabase', 
-    registry.String('tokens.yaml', _("""Filename holding the yaml structure with user tokens."""), private=True))
+                          registry.Boolean(True, _("""Lookup Jira issues and print on the channel.""")))
+conf.registerGlobalValue(Jira, 'snarfRegex',
+                         registry.String('JRA-[0-9]+', _("""Regex for Jira ticket ID snarfing.""")))
+conf.registerGlobalValue(Jira, 'OAuthConsumerName',
+                         registry.String('', _("""Consumer name as per the Jira linked applications."""), private=True))
+conf.registerGlobalValue(Jira, 'OAuthConsumerKey',
+                         registry.String('', _("""Consumer secret key as per the Jira linked applications."""), private=True))
+conf.registerGlobalValue(Jira, 'OAuthVerifier',
+                         registry.String('', _("""Consumer verification string for Jira OAuth."""), private=True))
+conf.registerGlobalValue(Jira, 'OAuthConsumerSSLKey',
+                         registry.String('', _("""Filename holding the SSL key bound with the Jira trusted cert."""), private=True))
+conf.registerGlobalValue(Jira, 'OAuthTokenDatabase',
+                         registry.String('tokens.yaml', _("""Filename holding the yaml structure with user tokens."""), private=True))
 
 
 # vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:
